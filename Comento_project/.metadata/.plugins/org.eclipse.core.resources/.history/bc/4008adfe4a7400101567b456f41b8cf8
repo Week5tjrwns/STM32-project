@@ -1,0 +1,101 @@
+#include "main.h"
+#include "usart.h"
+#include <stdio.h>                 // ✅ snprintf 선언
+
+/* ===== 전역 ===== */
+volatile State_t g_state = IDLE;
+static uint8_t g_rx;
+
+#define LED_IDLE_MS 500
+#define LED_RUN_MS  100
+#define LED_ERR_MS   25
+
+/* ===== UART RX 콜백 (USART1) ===== */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART1)
+    {
+        const char pre[] = "[MCU RX] ";
+        HAL_UART_Transmit(&huart1, (uint8_t*)pre, sizeof(pre)-1, HAL_MAX_DELAY);
+        HAL_UART_Transmit(&huart1, &g_rx, 1, HAL_MAX_DELAY);
+        const char nl[] = "\r\n";
+        HAL_UART_Transmit(&huart1, (uint8_t*)nl, sizeof(nl)-1, HAL_MAX_DELAY);
+
+        if      (g_rx == 'i') g_state = IDLE;
+        else if (g_rx == 's') g_state = RUN;
+        else if (g_rx == 'e') g_state = ERR;
+
+        HAL_UART_Receive_IT(&huart1, &g_rx, 1); // re-arm
+    }
+}
+
+int main(void)
+{
+    HAL_Init();
+    SystemClock_Config();          // ✅ 밑에 본문 있음
+    MX_GPIO_Init();
+    MX_USART1_UART_Init();
+
+    /* 부팅 메시지 */
+    const char boot[] = "\r\n=== MCU BOOT ===\r\n";
+    HAL_UART_Transmit(&huart1, (uint8_t*)boot, sizeof(boot)-1, HAL_MAX_DELAY);
+
+    HAL_UART_Receive_IT(&huart1, &g_rx, 1);
+
+    uint32_t last = 0;
+    while (1)
+    {
+        switch (g_state) {
+            case IDLE: HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET); HAL_Delay(LED_IDLE_MS); break;
+            case RUN:  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin); HAL_Delay(LED_RUN_MS);  break;
+            case ERR:  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin); HAL_Delay(LED_ERR_MS);  break;
+        }
+
+        /* 1초 하트비트 */
+        if (HAL_GetTick() - last >= 1000) {
+            char msg[48];
+            const char *st = (g_state==IDLE)?"IDLE":(g_state==RUN)?"RUN":"ERR";
+            int n = snprintf(msg, sizeof msg, "[HB] %s %lu\r\n", st, (unsigned long)HAL_GetTick());
+            HAL_UART_Transmit(&huart1, (uint8_t*)msg, (uint16_t)n, HAL_MAX_DELAY);
+            last = HAL_GetTick();
+        }
+    }
+}
+
+/* ===== 클럭: HSI 8MHz (QEMU 안정설정) ===== */
+void SystemClock_Config(void)
+{
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+    __HAL_RCC_AFIO_CLK_ENABLE();
+    __HAL_RCC_PWR_CLK_ENABLE();
+    __HAL_AFIO_REMAP_SWJ_NOJTAG(); // 선택
+
+    /* HSI ON, PLL OFF */
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+    RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+    RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_OFF;
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) Error_Handler();
+
+    RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK |
+                                  RCC_CLOCKTYPE_SYSCLK |
+                                  RCC_CLOCKTYPE_PCLK1 |
+                                  RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource   = RCC_SYSCLKSOURCE_HSI;
+    RCC_ClkInitStruct.AHBCLKDivider  = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK) Error_Handler();
+}
+
+/* ===== 에러 핸들러 ===== */
+void Error_Handler(void)
+{
+    __disable_irq();
+    while (1) {
+        HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+        HAL_Delay(100);
+    }
+}

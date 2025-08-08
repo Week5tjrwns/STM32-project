@@ -1,0 +1,51 @@
+#include "main.h"
+
+volatile State_t g_state = IDLE;
+static uint8_t g_rx;
+
+#define LED_IDLE_MS 500
+#define LED_RUN_MS  100
+#define LED_ERR_MS   25
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART2)
+    {
+        HAL_UART_Transmit(&huart2, &g_rx, 1, HAL_MAX_DELAY);
+
+        if      (g_rx == 'i') g_state = IDLE;
+        else if (g_rx == 's') g_state = RUN;
+        else if (g_rx == 'e') g_state = ERR;
+
+        HAL_UART_Receive_IT(&huart2, &g_rx, 1);
+    }
+}
+
+int main(void)
+{
+    HAL_Init();
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_USART2_UART_Init();
+
+    HAL_UART_Receive_IT(&huart2, &g_rx, 1);
+
+    while (1)
+    {
+        switch (g_state)
+        {
+            case IDLE:
+                HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+                HAL_Delay(LED_IDLE_MS);
+                break;
+            case RUN:
+                HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+                HAL_Delay(LED_RUN_MS);
+                break;
+            case ERR:
+                HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+                HAL_Delay(LED_ERR_MS);
+                break;
+        }
+    }
+}

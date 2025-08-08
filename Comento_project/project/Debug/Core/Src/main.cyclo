@@ -1,0 +1,13 @@
+../Core/Src/main.c:7:20:uart1_putc	2
+../Core/Src/main.c:13:20:uart1_puts	2
+../Core/Src/main.c:14:20:uart1_getc_nonblock	2
+../Core/Src/main.c:22:20:uart1_init_9600_on_8MHz	1
+../Core/Src/main.c:35:20:gpio_pa5_output_init	1
+../Core/Src/main.c:41:20:led_on	1
+../Core/Src/main.c:42:20:led_off	1
+../Core/Src/main.c:43:20:led_is_on	1
+../Core/Src/main.c:46:6:SystemClock_Config	1
+../Core/Src/main.c:58:6:Error_Handler	1
+../Core/Src/main.c:64:13:print_prompt	1
+../Core/Src/main.c:66:13:handle_line	8
+../Core/Src/main.c:83:5:main	9
