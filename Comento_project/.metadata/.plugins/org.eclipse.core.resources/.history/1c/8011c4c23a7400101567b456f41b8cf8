@@ -1,0 +1,138 @@
+#include "main.h"
+
+/* ====== 전역 ====== */
+UART_HandleTypeDef huart2;
+volatile State_t g_state = IDLE;
+static uint8_t g_rx;
+
+/* ====== 로컬 프로토타입 ====== */
+static void SystemClock_Config(void);
+static void MX_GPIO_Init(void);
+static void MX_USART2_UART_Init(void);
+
+/* ====== 유틸 ====== */
+#define LED_IDLE_MS 500
+#define LED_RUN_MS  100
+#define LED_ERR_MS   25
+
+/* ====== 콜백: UART 수신 완료(IRQ 내에서 HAL이 호출) ====== */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART2)
+    {
+        /* 1) Echo */
+        (void)HAL_UART_Transmit(&huart2, &g_rx, 1, 0);
+
+        /* 2) 상태 전이 */
+        if      (g_rx == 'i') g_state = IDLE;
+        else if (g_rx == 's') g_state = RUN;
+        else if (g_rx == 'e') g_state = ERR;
+        /* 그 외 문자는 상태 유지 */
+
+        /* 3) 다음 1바이트 비동기 수신 재개 */
+        (void)HAL_UART_Receive_IT(&huart2, &g_rx, 1);
+    }
+}
+
+/* ====== 엔트리 ====== */
+int main(void)
+{
+    HAL_Init();
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_USART2_UART_Init();
+
+    /* 첫 1바이트 인터럽트 수신 시작 */
+    (void)HAL_UART_Receive_IT(&huart2, &g_rx, 1);
+
+    /* 메인 상태 루프 */
+    for (;;)
+    {
+        switch (g_state)
+        {
+            case IDLE:
+                HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET); // OFF 유지
+                HAL_Delay(LED_IDLE_MS);
+                break;
+
+            case RUN:
+                HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+                HAL_Delay(LED_RUN_MS);
+                break;
+
+            case ERR:
+                HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+                HAL_Delay(LED_ERR_MS);
+                break;
+        }
+    }
+}
+
+/* ====== 클럭: HSE 8MHz → PLL×9 = SYSCLK 72MHz ====== */
+static void SystemClock_Config(void)
+{
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+    __HAL_RCC_AFIO_CLK_ENABLE();
+    __HAL_RCC_PWR_CLK_ENABLE();
+    __HAL_AFIO_REMAP_SWJ_NOJTAG(); // JTAG 비활성(핀 여유), SWD만 유지
+
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+    RCC_OscInitStruct.HSEState       = RCC_HSE_ON;
+    RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
+    RCC_OscInitStruct.HSIState       = RCC_HSI_ON;
+    RCC_OscInitStruct.PLL.PLLState   = RCC_PLL_ON;
+    RCC_OscInitStruct.PLL.PLLSource  = RCC_PLLSOURCE_HSE;
+    RCC_OscInitStruct.PLL.PLLMUL     = RCC_PLL_MUL9; // 8MHz * 9 = 72MHz
+    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) Error_Handler();
+
+    RCC_ClkInitStruct.ClockType      = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
+                                     | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+    RCC_ClkInitStruct.SYSCLKSource   = RCC_SYSCLKSOURCE_PLLCLK;
+    RCC_ClkInitStruct.AHBCLKDivider  = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2; // APB1 ≤ 36MHz
+    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK) Error_Handler();
+}
+
+/* ====== GPIO: PA5 Output Push-Pull ====== */
+static void MX_GPIO_Init(void)
+{
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    GPIO_InitStruct.Pin   = LED_Pin;
+    GPIO_InitStruct.Mode  = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(LED_GPIO_Port, &GPIO_InitStruct);
+
+    HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+}
+
+/* ====== UART2: 115200-8N1, RX 인터럽트 사용 ====== */
+static void MX_USART2_UART_Init(void)
+{
+    __HAL_RCC_USART2_CLK_ENABLE();
+
+    huart2.Instance        = USART2;
+    huart2.Init.BaudRate   = 115200;
+    huart2.Init.WordLength = UART_WORDLENGTH_8B;
+    huart2.Init.StopBits   = UART_STOPBITS_1;
+    huart2.Init.Parity     = UART_PARITY_NONE;
+    huart2.Init.Mode       = UART_MODE_TX_RX;
+    huart2.Init.HwFlowCtl  = UART_HWCONTROL_NONE;
+    huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+    if (HAL_UART_Init(&huart2) != HAL_OK) Error_Handler();
+}
+
+/* ====== 에러 핸들러 ====== */
+void Error_Handler(void)
+{
+    __disable_irq();
+    while (1) {
+        HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+        HAL_Delay(100);
+    }
+}

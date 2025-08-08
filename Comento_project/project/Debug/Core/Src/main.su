@@ -1,0 +1,13 @@
+../Core/Src/main.c:7:20:uart1_putc	24	static
+../Core/Src/main.c:13:20:uart1_puts	16	static
+../Core/Src/main.c:14:20:uart1_getc_nonblock	16	static
+../Core/Src/main.c:22:20:uart1_init_9600_on_8MHz	16	static
+../Core/Src/main.c:35:20:gpio_pa5_output_init	16	static
+../Core/Src/main.c:41:20:led_on	4	static
+../Core/Src/main.c:42:20:led_off	4	static
+../Core/Src/main.c:43:20:led_is_on	4	static
+../Core/Src/main.c:46:6:SystemClock_Config	80	static
+../Core/Src/main.c:58:6:Error_Handler	4	static,ignoring_inline_asm
+../Core/Src/main.c:64:13:print_prompt	8	static
+../Core/Src/main.c:66:13:handle_line	16	static
+../Core/Src/main.c:83:5:main	24	static

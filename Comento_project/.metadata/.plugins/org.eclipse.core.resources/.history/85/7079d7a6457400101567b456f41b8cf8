@@ -1,0 +1,51 @@
+#include "main.h"
+#include "gpio.h"
+#include "usart.h"
+
+/* 상태머신 */
+typedef enum { IDLE=0, RUN, ERR } State_t;
+volatile State_t g_state = IDLE;
+static uint8_t g_rx;
+
+#define LED_IDLE_MS 500
+#define LED_RUN_MS  100
+#define LED_ERR_MS   25
+
+void SystemClock_Config(void);     // 이미 있음
+void Error_Handler(void);          // 이미 있음
+
+/* UART 수신 콜백 */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART1)
+    {
+        HAL_UART_Transmit(&huart1, &g_rx, 1, HAL_MAX_DELAY);  // Echo
+        if      (g_rx=='i') g_state=IDLE;
+        else if (g_rx=='s') g_state=RUN;
+        else if (g_rx=='e') g_state=ERR;
+        HAL_UART_Receive_IT(&huart1, &g_rx, 1);               // re-arm
+    }
+}
+
+int main(void)
+{
+    HAL_Init();
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_USART1_UART_Init();
+
+    // 부팅 메시지로 TX 라인 확인
+    const char *boot="BOOT\r\n";
+    HAL_UART_Transmit(&huart1,(uint8_t*)boot,6,HAL_MAX_DELAY);
+
+    HAL_UART_Receive_IT(&huart1, &g_rx, 1);                   // IRQ RX start
+
+    while (1)
+    {
+        switch (g_state) {
+            case IDLE: HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET); HAL_Delay(LED_IDLE_MS); break;
+            case RUN:  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5); HAL_Delay(LED_RUN_MS);  break;
+            case ERR:  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5); HAL_Delay(LED_ERR_MS);  break;
+        }
+    }
+}

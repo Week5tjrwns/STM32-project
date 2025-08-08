@@ -1,0 +1,16 @@
+#include "stm32f1xx_it.h"
+#include "main.h"
+
+extern UART_HandleTypeDef huart2;
+
+/* SysTick: HAL tick 유지 */
+void SysTick_Handler(void)
+{
+    HAL_IncTick();
+}
+
+/* USART2 IRQ 핸들러: HAL에 위임 */
+void USART2_IRQHandler(void)
+{
+    HAL_UART_IRQHandler(&huart2);
+}

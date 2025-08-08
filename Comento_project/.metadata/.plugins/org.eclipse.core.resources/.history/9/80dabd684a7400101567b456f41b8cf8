@@ -1,0 +1,82 @@
+#include "main.h"
+#include "usart.h"
+
+/* 전역 상태 변수 정의(헤더에는 extern만 존재) */
+volatile State_t g_state = IDLE;
+static uint8_t g_rx;
+
+#define LED_IDLE_MS 500
+#define LED_RUN_MS  100
+#define LED_ERR_MS   25
+
+/* UART 수신 콜백 */
+
+// ⓐ UART RX 콜백 (USART1 기준)
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART1)
+    {
+        // (1) 에코백 + 프리픽스(화면에서 로컬에코와 구분되도록)
+        const char pre[] = "[MCU RX] ";
+        HAL_UART_Transmit(&huart1, (uint8_t*)pre, sizeof(pre)-1, HAL_MAX_DELAY);
+        HAL_UART_Transmit(&huart1, &g_rx, 1, HAL_MAX_DELAY);
+        const char nl[] = "\r\n";
+        HAL_UART_Transmit(&huart1, (uint8_t*)nl, sizeof(nl)-1, HAL_MAX_DELAY);
+
+        // (2) 상태 전이
+        if      (g_rx == 'i') g_state = IDLE;
+        else if (g_rx == 's') g_state = RUN;
+        else if (g_rx == 'e') g_state = ERR;
+
+        // (3) 다음 바이트 수신 재개
+        HAL_UART_Receive_IT(&huart1, &g_rx, 1);
+    }
+}
+
+int main(void)
+{
+    HAL_Init();
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_USART1_UART_Init();
+
+    // ⓑ 부팅 메시지 (실행되자마자 눈에 보이게)
+    const char boot[] = "\r\n=== MCU BOOT ===\r\n";
+    HAL_UART_Transmit(&huart1, (uint8_t*)boot, sizeof(boot)-1, HAL_MAX_DELAY);
+
+    HAL_UART_Receive_IT(&huart1, &g_rx, 1);
+
+    uint32_t last = 0;
+    while (1)
+    {
+        // 상태별 LED (그대로)
+        switch (g_state) {
+            case IDLE: HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET); HAL_Delay(500); break;
+            case RUN:  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin); HAL_Delay(100); break;
+            case ERR:  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin); HAL_Delay(25);  break;
+        }
+
+        // ⓒ 1초마다 하트비트 출력(확실한 TX 확인용)
+        if (HAL_GetTick() - last >= 1000) {
+            char msg[32];
+            const char* st = (g_state==IDLE)?"IDLE":(g_state==RUN)?"RUN":"ERR";
+            int n = snprintf(msg, sizeof msg, "[HB] %s %lu\r\n", st, HAL_GetTick());
+            HAL_UART_Transmit(&huart1, (uint8_t*)msg, n, HAL_MAX_DELAY);
+            last = HAL_GetTick();
+        }
+    }
+}
+
+
+
+/* ===== 에러 핸들러: LED 빠른 토글 ===== */
+void Error_Handler(void)
+{
+    __disable_irq();
+    while (1) {
+        HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+        HAL_Delay(100);
+    }
+}
+
+/* SystemClock_Config(), Error_Handler()는 기존 정의 유지 */

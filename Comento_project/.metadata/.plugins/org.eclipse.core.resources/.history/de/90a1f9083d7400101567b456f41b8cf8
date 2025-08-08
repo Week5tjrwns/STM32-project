@@ -1,0 +1,25 @@
+#ifndef __MAIN_H
+#define __MAIN_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "stm32f1xx_hal.h"
+#include "gpio.h"
+#include "usart.h"            // ✅ usart.h 사용 (HAL UART 헤더를 내부에서 끌어옵니다)
+
+/* ====== 상태머신 ====== */
+typedef enum { IDLE = 0, RUN, ERR } State_t;
+extern volatile State_t g_state;
+
+/* ====== 핀 매핑 ====== */
+#define LED_GPIO_Port   GPIOA
+#define LED_Pin         GPIO_PIN_5
+
+void Error_Handler(void);
+
+#ifdef __cplusplus
+}
+#endif
+#endif

@@ -1,0 +1,13 @@
+using sysbus
+mach create "stm32-demo"
+
+
+machine LoadPlatformDescription @platforms/boards/stm32vldiscovery.repl
+
+
+sysbus LoadELF @C:\Comento_project\project\Debug\project.elf
+
+
+showAnalyzer sysbus.usart1
+
+start

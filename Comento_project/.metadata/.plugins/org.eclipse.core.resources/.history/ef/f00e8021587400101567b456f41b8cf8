@@ -1,0 +1,64 @@
+#include "main.h"
+#include <stdint.h>
+
+
+static inline void uart1_putc(char c){
+    volatile uint32_t *USART1_SR  = (uint32_t *)0x40013800;
+    volatile uint32_t *USART1_DR  = (uint32_t *)0x40013804;
+    while(((*USART1_SR) & (1<<7)) == 0) { /* TXE */ }
+    *USART1_DR = (uint8_t)c;
+}
+static inline int uart1_getc_nonblock(void){
+    volatile uint32_t *USART1_SR  = (uint32_t *)0x40013800;
+    if((*USART1_SR) & (1<<5)) {             /* RXNE */
+        volatile uint32_t *USART1_DR  = (uint32_t *)0x40013804;
+        return (int)(uint8_t)(*USART1_DR);
+    }
+    return -1;
+}
+static inline void uart1_init_9600_on_8MHz(void){
+    volatile uint32_t *USART1_BRR = (uint32_t *)0x40013808;
+    volatile uint32_t *USART1_CR1 = (uint32_t *)0x4001380C;
+    /* 8MHz / 9600 ≈ 833.3 → BRR=0x341 (mantissa=52, fraction=1) */
+    *USART1_BRR = 0x341;
+    *USART1_CR1 = (1<<13) /* UE */ | (1<<3) /* TE */ | (1<<2); /* RE */
+}
+
+void SystemClock_Config(void){
+    RCC_OscInitTypeDef o={0}; RCC_ClkInitTypeDef c={0};
+    __HAL_RCC_AFIO_CLK_ENABLE(); __HAL_RCC_PWR_CLK_ENABLE();
+    __HAL_AFIO_REMAP_SWJ_NOJTAG();
+    o.OscillatorType=RCC_OSCILLATORTYPE_HSI; o.HSIState=RCC_HSI_ON;
+    o.HSICalibrationValue=RCC_HSICALIBRATION_DEFAULT; o.PLL.PLLState=RCC_PLL_OFF;
+    HAL_RCC_OscConfig(&o);
+    c.ClockType=RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK|RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+    c.SYSCLKSource=RCC_SYSCLKSOURCE_HSI; c.AHBCLKDivider=RCC_SYSCLK_DIV1;
+    c.APB1CLKDivider=RCC_HCLK_DIV1; c.APB2CLKDivider=RCC_HCLK_DIV1;
+    HAL_RCC_ClockConfig(&c, FLASH_LATENCY_0);
+}
+void Error_Handler(void){ __disable_irq(); while(1){} }
+
+static void puts1(const char *s){ while(*s) uart1_putc(*s++); }
+
+int main(void){
+    HAL_Init();                 // SysTick만 씀
+    SystemClock_Config();       // HSI 8MHz
+    uart1_init_9600_on_8MHz();  // ★ RCC 없이 직접 UART1 켜기
+
+    puts1("\r\n=== BOOT F103 (reg-UART1) ===\r\n");
+    uint32_t last = HAL_GetTick();
+    unsigned cnt=0;
+
+    for(;;){
+        // 1초 하트비트
+        if(HAL_GetTick()-last >= 1000){
+            puts1("[HB] alive "); uart1_putc('#'); uart1_putc('0'+(cnt++%10)); puts1("\r\n");
+            last = HAL_GetTick();
+        }
+        // 입력 에코
+        int ch = uart1_getc_nonblock();
+        if(ch >= 0){
+            puts1("[RX] "); uart1_putc((char)ch); puts1("\r\n");
+        }
+    }
+}

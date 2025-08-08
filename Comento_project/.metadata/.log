@@ -1,0 +1,24 @@
+!SESSION 2025-08-08 18:22:31.072 -----------------------------------------------
+eclipse.buildId=Version 1.19.0
+java.version=21.0.3
+java.vendor=Eclipse Adoptium
+BootLoader constants: OS=win32, ARCH=x86_64, WS=win32, NL=ko_KR
+Command-line arguments:  -os win32 -ws win32 -arch x86_64
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 4 4 2025-08-08 18:23:16.577
+!MESSAGE CubeMX plugin appears to be active, Log4j initialization might be too late.
+
+!ENTRY com.st.stm32cube.ide.mcu.informationcenter 1 1 2025-08-08 18:23:16.580
+!MESSAGE Log4j2 initialized with config file C:\Comento_project\.metadata\.log4j2.xml
+
+!ENTRY com.st.stm32cube.ide.mcu.ide 1 1 2025-08-08 18:23:21.023
+!MESSAGE Started RMI Server, listening on port 41337
+
+!ENTRY org.eclipse.cdt.core 1 0 2025-08-08 18:26:47.848
+!MESSAGE Indexed 'project' (17 sources, 78 headers) in 3.05 sec: 3,647 declarations; 13,278 references; 0 unresolved inclusions; 1 syntax errors; 2 unresolved names (0.012%)
+
+!ENTRY org.eclipse.cdt.core 1 0 2025-08-08 19:01:39.608
+!MESSAGE Indexed 'project' (18 sources, 79 headers) in 0.985 sec: 4,132 declarations; 17,817 references; 0 unresolved inclusions; 1 syntax errors; 2 unresolved names (0.0091%)
+
+!ENTRY org.eclipse.cdt.core 1 0 2025-08-08 19:08:13.446
+!MESSAGE Indexed 'project' (20 sources, 81 headers) in 1.05 sec: 4,133 declarations; 17,824 references; 0 unresolved inclusions; 1 syntax errors; 2 unresolved names (0.0091%)

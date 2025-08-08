@@ -1,0 +1,38 @@
+#include "main.h"
+
+/* UART2 GPIO/IRQ 초기화 (PA2=TX, PA3=RX) */
+void HAL_UART_MspInit(UART_HandleTypeDef* huart)
+{
+    if (huart->Instance == USART2)
+    {
+        GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+        __HAL_RCC_GPIOA_CLK_ENABLE();
+
+        /* PA2 : USART2_TX */
+        GPIO_InitStruct.Pin   = GPIO_PIN_2;
+        GPIO_InitStruct.Mode  = GPIO_MODE_AF_PP;
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+        HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+        /* PA3 : USART2_RX */
+        GPIO_InitStruct.Pin   = GPIO_PIN_3;
+        GPIO_InitStruct.Mode  = GPIO_MODE_INPUT;
+        GPIO_InitStruct.Pull  = GPIO_NOPULL;
+        HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+        /* NVIC: USART2 IRQ */
+        HAL_NVIC_SetPriority(USART2_IRQn, 5, 0);
+        HAL_NVIC_EnableIRQ(USART2_IRQn);
+    }
+}
+
+void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
+{
+    if (huart->Instance == USART2)
+    {
+        HAL_NVIC_DisableIRQ(USART2_IRQn);
+        HAL_GPIO_DeInit(GPIOA, GPIO_PIN_2 | GPIO_PIN_3);
+        __HAL_RCC_USART2_CLK_DISABLE();
+    }
+}
