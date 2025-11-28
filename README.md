@@ -12,6 +12,8 @@ EV Brake System ECU Firmware Practice
 
 환경: STM32CubeIDE, STM32F413ZH, FreeRTOS
 
+
+
 2. 주요 기능 구현
 
 RTOS 환경에서 4개의 태스크가 Mutex를 주고받으며 순서대로 동작하도록 설계했습니다.
@@ -31,6 +33,8 @@ RTOS 구성
 FreeRTOS를 사용하여 기능별로 태스크를 분리했습니다.
 
 I2C -> SPI -> CAN -> UART 순서로 자원을 쓰기 위해 Mutex를 사용하여 동기화를 맞췄습니다.
+
+
 
 3. 문제 해결 (CANoe 로그 분석)
 
